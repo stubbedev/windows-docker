@@ -25,5 +25,11 @@ services:
       - ./storage:/storage
       - ./oem:/oem:ro
       - ./shared:/shared
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /shared/install.done"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 5m
     restart: always
     stop_grace_period: 2m

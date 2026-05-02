@@ -304,6 +304,9 @@ echo.
 
 > "%DONE_MARKER%" echo Completed: %DATE% %TIME%
 
+:: Signal Docker healthcheck that setup is complete
+echo Completed: %DATE% %TIME% > "\\host.lan\Data\install.done"
+
 echo ============================================
 echo  Setup Complete!
 echo ============================================
