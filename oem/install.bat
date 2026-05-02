@@ -178,10 +178,11 @@ echo PHP toolset: !PHP_VS!
 set "PHP_ZIP_NAME=php-!PHP_VERSION!-Win32-!PHP_VS!-x64.zip"
 set "PHP_BASE_URL=https://windows.php.net/downloads/releases"
 
-:: Download PHP zip (current release, then archive)
-powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '!PHP_BASE_URL!/!PHP_ZIP_NAME!' -OutFile 'C:\OEM\php.zip' -ErrorAction Stop" 2>nul
+:: Download PHP zip (current release, then archive).
+:: Force TLS 1.2 — PS 5.1 on Win 10 LTSC defaults to TLS 1.0 which windows.php.net rejects.
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '!PHP_BASE_URL!/!PHP_ZIP_NAME!' -OutFile 'C:\OEM\php.zip' -ErrorAction Stop"
 if not exist "C:\OEM\php.zip" (
-    powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '!PHP_BASE_URL!/archives/!PHP_ZIP_NAME!' -OutFile 'C:\OEM\php.zip' -ErrorAction Stop" 2>nul
+    powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '!PHP_BASE_URL!/archives/!PHP_ZIP_NAME!' -OutFile 'C:\OEM\php.zip' -ErrorAction Stop"
 )
 
 if not exist "C:\OEM\php.zip" (
