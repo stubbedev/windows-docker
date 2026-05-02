@@ -210,6 +210,10 @@ if exist "C:\php\php.ini-production" (
     copy /Y "C:\php\php.ini-development" "C:\php\php.ini"
 )
 
+:: Always enable openssl and curl — required for Composer and HTTPS.
+:: apply-ini.ps1 may also set these; this guarantees them even if that step fails.
+powershell -NoProfile -Command "(Get-Content C:\php\php.ini) -replace '^;extension=openssl$','extension=openssl' -replace '^;extension=curl$','extension=curl' | Set-Content C:\php\php.ini"
+
 :: Apply php-config.ini settings
 echo Applying php-config.ini settings...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\apply-ini.ps1"
