@@ -2,22 +2,23 @@
 setlocal EnableDelayedExpansion
 
 :: ============================================================
-:: Logging: tee everything to C:\OEM-logs\install.log
+:: Logging + idempotency
 :: ============================================================
 if not exist "C:\OEM-logs" mkdir "C:\OEM-logs"
 set "LOG=C:\OEM-logs\install.log"
 set "DONE_MARKER=C:\OEM-logs\install.done"
+set "SCRIPTS=C:\OEM\scripts"
 
 if exist "%DONE_MARKER%" (
     echo Install already completed at %DONE_MARKER%. Skipping.
     exit /b 0
 )
 
-:: Re-launch self with output redirected to the log (and still echoed to console).
+:: Re-launch self with output redirected to the log (cmd-only, no PS tee).
 if not defined __OEM_LOGGED (
     set "__OEM_LOGGED=1"
-    powershell -NoProfile -Command "& { & cmd /c '%~f0' 2>&1 | Tee-Object -FilePath '%LOG%' }"
-    exit /b %ERRORLEVEL%
+    call "%~f0" >> "%LOG%" 2>&1
+    exit /b !ERRORLEVEL!
 )
 
 echo ============================================
@@ -27,7 +28,7 @@ echo ============================================
 echo.
 
 :: ============================================================
-:: 1. ACTIVATE WINDOWS (HWID)
+:: 1. ACTIVATE WINDOWS (HWID, then TSforge for eval editions)
 :: ============================================================
 echo [1/7] Activating Windows...
 echo.
@@ -35,10 +36,12 @@ echo.
 powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://dev.azure.com/massgrave/Microsoft-Activation-Scripts/_apis/git/repositories/Microsoft-Activation-Scripts/items?path=/MAS/All-In-One-Version-KL/MAS_AIO.cmd&download=true' -OutFile 'C:\OEM\MAS_AIO.cmd' -ErrorAction Stop"
 if exist "C:\OEM\MAS_AIO.cmd" (
     echo MAS script downloaded successfully.
+    :: HWID first (works for retail/volume); TSforge second (handles Eval/IoT LTSC).
     call C:\OEM\MAS_AIO.cmd /HWID
-    echo Windows activation complete.
+    call C:\OEM\MAS_AIO.cmd /TSforge
+    echo Windows activation attempts complete.
 ) else (
-    echo WARNING: Failed to download MAS script. Will retry later.
+    echo WARNING: Failed to download MAS script. Activation skipped.
 )
 echo.
 
@@ -48,13 +51,7 @@ echo.
 echo [2/7] Installing Microsoft Office 2024 LTSC...
 echo.
 
-:: Resolve current ODT URL by scraping MS download page; fall back to known-good static URL.
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ProgressPreference='SilentlyContinue';" ^
-    "$urls = @();" ^
-    "try { $r = Invoke-WebRequest -Uri 'https://www.microsoft.com/en-us/download/details.aspx?id=49117' -UseBasicParsing -ErrorAction Stop; $urls += [regex]::Matches($r.Content,'https://download\.microsoft\.com/download/[^\"''<>]+officedeploymenttool[^\"''<>]+\.exe') | ForEach-Object { $_.Value } } catch {};" ^
-    "$urls += 'https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_18827-20140.exe';" ^
-    "foreach ($u in $urls) { try { Invoke-WebRequest -Uri $u -OutFile 'C:\OEM\odt.exe' -ErrorAction Stop; if ((Get-Item 'C:\OEM\odt.exe').Length -gt 1MB) { break } } catch { Remove-Item 'C:\OEM\odt.exe' -ErrorAction SilentlyContinue } }"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\get-odt.ps1"
 
 if exist "C:\OEM\odt.exe" (
     C:\OEM\odt.exe /extract:C:\OEM\ODT /quiet
@@ -100,14 +97,8 @@ if !ERRORLEVEL! EQU 0 (
 )
 
 if not defined GIT_INSTALLED (
-    echo winget unavailable or failed; falling back to direct GitHub release download...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference='SilentlyContinue';" ^
-        "try {" ^
-        "  $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/git-for-windows/git/releases/latest' -Headers @{ 'User-Agent' = 'oem-install' } -ErrorAction Stop;" ^
-        "  $asset = $rel.assets | Where-Object { $_.name -match '^Git-.*-64-bit\.exe$' } | Select-Object -First 1;" ^
-        "  if ($asset) { Invoke-WebRequest -Uri $asset.browser_download_url -OutFile 'C:\OEM\git-installer.exe' -ErrorAction Stop }" ^
-        "} catch { Write-Host \"Git release lookup failed: $_\" }"
+    echo winget unavailable or failed; falling back to GitHub release download...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\get-git.ps1"
     if exist "C:\OEM\git-installer.exe" (
         C:\OEM\git-installer.exe /VERYSILENT /NORESTART /SUPPRESSMSGBOXES /NOCANCEL /SP- /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
         set "GIT_INSTALLED=1"
@@ -123,9 +114,31 @@ if defined MACHINE_PATH set "PATH=%MACHINE_PATH%;%PATH%"
 echo.
 
 :: ============================================================
-:: 5. INSTALL PHP
+:: 5. INSTALL VC++ REDISTRIBUTABLE + PHP
 :: ============================================================
 echo [5/7] Installing PHP...
+echo.
+
+:: PHP 8.4 requires VCRUNTIME140.dll >= 14.43. Install VC++ Redist 2022 first
+:: so PHP doesn't emit DLL-version warnings on every invocation.
+echo Installing Visual C++ Redistributable 2022...
+set "VCREDIST_INSTALLED="
+where winget >nul 2>&1
+if !ERRORLEVEL! EQU 0 (
+    winget install --id Microsoft.VCRedist.2022.x64 --silent --accept-package-agreements --accept-source-agreements
+    if !ERRORLEVEL! EQU 0 set "VCREDIST_INSTALLED=1"
+)
+if not defined VCREDIST_INSTALLED (
+    powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile 'C:\OEM\vcredist.exe' -ErrorAction Stop"
+    if exist "C:\OEM\vcredist.exe" (
+        C:\OEM\vcredist.exe /install /quiet /norestart
+        del /F /Q "C:\OEM\vcredist.exe" 2>nul
+        set "VCREDIST_INSTALLED=1"
+        echo VC++ Redistributable installed.
+    ) else (
+        echo WARNING: Failed to download VC++ Redistributable. PHP may show DLL warnings.
+    )
+)
 echo.
 
 if not exist "C:\php" mkdir C:\php
@@ -136,7 +149,6 @@ if not exist "C:\OEM\php-config.ini" (
     goto :php_skip
 )
 
-:: Read PHP version from config
 set "PHP_VERSION="
 for /f "usebackq tokens=1,* delims==" %%A in ("C:\OEM\php-config.ini") do (
     set "line_key=%%A"
@@ -177,22 +189,9 @@ if not exist "C:\OEM\php.zip" (
     goto :php_skip
 )
 
-:: Verify PHP zip SHA-256 against the sidecar published by windows.php.net (best-effort)
+:: Verify PHP zip SHA-256 against the sidecar published by windows.php.net
 echo Verifying PHP archive checksum...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ok = $false;" ^
-    "try {" ^
-    "  $expected = $null;" ^
-    "  foreach ($u in @('!PHP_BASE_URL!/!PHP_ZIP_NAME!.sha256','!PHP_BASE_URL!/archives/!PHP_ZIP_NAME!.sha256')) {" ^
-    "    try { $expected = (Invoke-WebRequest -Uri $u -UseBasicParsing -ErrorAction Stop).Content.Trim().Split()[0]; if ($expected) { break } } catch {}" ^
-    "  }" ^
-    "  if ($expected) {" ^
-    "    $actual = (Get-FileHash 'C:\OEM\php.zip' -Algorithm SHA256).Hash;" ^
-    "    if ($actual -ieq $expected) { Write-Host 'PHP checksum OK.'; $ok = $true } else { Write-Host \"PHP checksum MISMATCH (expected $expected, got $actual)\" }" ^
-    "  } else { Write-Host 'PHP checksum sidecar unavailable; skipping verify.'; $ok = $true }" ^
-    "} catch { Write-Host \"PHP checksum check error: $_\"; $ok = $true };" ^
-    "if (-not $ok) { exit 1 }"
-
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\verify-php.ps1"
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: PHP archive failed checksum verification. Aborting PHP install.
     del /F /Q "C:\OEM\php.zip" 2>nul
@@ -212,18 +211,11 @@ if exist "C:\php\php.ini-production" (
 
 :: Apply php-config.ini settings
 echo Applying php-config.ini settings...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$configPath = 'C:\OEM\php-config.ini'; $iniPath = 'C:\php\php.ini'; $content = Get-Content $iniPath -Raw; $lines = Get-Content $configPath; foreach ($line in $lines) { $line = $line.Trim(); if ($line -match '^;|^$') { continue }; $parts = $line -split '=', 2; if ($parts.Count -ne 2) { continue }; $key = $parts[0].Trim(); $val = $parts[1].Trim(); if ($key -eq 'version') { continue }; if ($key -eq 'extension') { $extName = $val; $pattern = '^;\s*extension\s*=\s*' + [regex]::Escape($extName) + '\.dll\s*$'; if ($content -match $pattern) { $content = $content -replace $pattern, \"extension=$extName.dll\" } else { $dllPattern = '^;\s*extension\s*=\s*php_' + [regex]::Escape($extName) + '\.dll\s*$'; if ($content -match $dllPattern) { $content = $content -replace $dllPattern, \"extension=php_$extName.dll\" } else { $content += \"`r`nextension=$extName.dll`r`n\" } } } else { $escapedKey = [regex]::Escape($key); $iniPattern = '(?m)^;?\s*' + $escapedKey + '\s*=.*$'; if ($content -match $iniPattern) { $content = $content -replace $iniPattern, \"$key = $val\" } else { $content += \"`r`n$key = $val`r`n\" } } }; [System.IO.File]::WriteAllText($iniPath, $content)"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\apply-ini.ps1"
 
-:: Install Composer (verify installer signature, then install as composer.phar + .bat shim)
+:: Install Composer (verify SHA-384 from composer.github.io/installer.sig)
 echo Installing Composer...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "$ProgressPreference='SilentlyContinue';" ^
-    "Invoke-WebRequest -Uri 'https://getcomposer.org/installer' -OutFile 'C:\php\composer-setup.php' -ErrorAction Stop;" ^
-    "$expected = (Invoke-WebRequest -Uri 'https://composer.github.io/installer.sig' -UseBasicParsing -ErrorAction Stop).Content.Trim();" ^
-    "$actual = (Get-FileHash 'C:\php\composer-setup.php' -Algorithm SHA384).Hash;" ^
-    "if ($actual -ine $expected) { Remove-Item 'C:\php\composer-setup.php' -Force; throw \"Composer installer signature mismatch (expected $expected, got $actual)\" } else { Write-Host 'Composer installer signature OK.' }"
-
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\install-composer.ps1"
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: Composer installer verification failed. Skipping Composer install.
 ) else (
@@ -237,10 +229,9 @@ if !ERRORLEVEL! NEQ 0 (
 )
 
 :: Add PHP to system PATH permanently
-powershell -NoProfile -Command "$oldPath = [Environment]::GetEnvironmentVariable('Path', 'Machine'); if ($oldPath -notlike '*C:\php*') { [Environment]::SetEnvironmentVariable('Path', \"$oldPath;C:\php\", 'Machine') }"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\set-php-path.ps1"
 set "PATH=C:\php;%PATH%"
 
-:: Verify installation
 C:\php\php.exe -v
 if exist "C:\php\composer.phar" C:\php\php.exe C:\php\composer.phar --version
 echo PHP installed to C:\php and added to PATH.
@@ -303,25 +294,15 @@ del /F /Q "C:\OEM\php-config.ini" 2>nul
 del /F /Q "C:\OEM\php.zip" 2>nul
 rmdir /S /Q "C:\OEM\ODT" 2>nul
 rmdir /S /Q "C:\OEM\php-extract" 2>nul
+rmdir /S /Q "C:\OEM\scripts" 2>nul
 echo.
 
-:: Idempotency marker
 > "%DONE_MARKER%" echo Completed: %DATE% %TIME%
 
 echo ============================================
 echo  Setup Complete!
 echo ============================================
-echo.
-echo Windows: Activated (HWID)
-echo Office:  Installed and Activated (Ohook)
-echo Git:     Installed
-echo PHP:     Installed at C:\php
-echo Files:   Copied to C:\Projects
-echo Log:     %LOG%
-echo.
-echo Access the desktop via:
-echo   - Web:    http://localhost:8006
-echo   - RDP:    localhost:3389
+echo Log: %LOG%
 echo.
 
 exit /b 0
