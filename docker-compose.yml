@@ -3,7 +3,7 @@ services:
     image: dockurr/windows
     container_name: windows
     environment:
-      VERSION: "${WINDOWS_VERSION:-10l}"
+      VERSION: "${WINDOWS_VERSION:-10}"
       RAM_SIZE: "${RAM_SIZE:-8G}"
       CPU_CORES: "${CPU_CORES:-4}"
       DISK_SIZE: "${DISK_SIZE:-64G}"
