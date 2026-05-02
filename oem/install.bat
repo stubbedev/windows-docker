@@ -36,10 +36,10 @@ echo.
 powershell -NoProfile -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://dev.azure.com/massgrave/Microsoft-Activation-Scripts/_apis/git/repositories/Microsoft-Activation-Scripts/items?path=/MAS/All-In-One-Version-KL/MAS_AIO.cmd&download=true' -OutFile 'C:\OEM\MAS_AIO.cmd' -ErrorAction Stop"
 if exist "C:\OEM\MAS_AIO.cmd" (
     echo MAS script downloaded successfully.
-    :: HWID first (works for retail/volume); TSforge second (handles Eval/IoT LTSC).
-    call C:\OEM\MAS_AIO.cmd /HWID
+    :: TSforge permanently activates eval editions via ticket spoofing.
+    :: HWID is skipped — it cannot activate eval SKUs and only wastes time.
     call C:\OEM\MAS_AIO.cmd /TSforge
-    echo Windows activation attempts complete.
+    echo Windows activation complete.
 ) else (
     echo WARNING: Failed to download MAS script. Activation skipped.
 )

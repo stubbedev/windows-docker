@@ -85,7 +85,7 @@ storage/                    # VM disk + state (created on first boot)
 
 - **Once-only OEM**: `install.bat` writes `C:\OEM-logs\install.done` when it finishes. To re-run, delete the marker — but most steps aren't safe to re-run on an existing system.
 - **dockur shared path**: dockur exposes `./shared` at `\\host.lan\Data`, *not* `C:\Shared`. The script copies from the UNC path.
-- **Activation**: HWID and Ohook leave no expiration. Re-run MAS manually (`/HWID`, `/Ohook`) after major Windows updates if activation drops.
+- **Activation**: dockur downloads eval ISOs; TSforge permanently activates Windows via ticket spoofing (works on eval). Ohook permanently activates Office. Both survive reboots and updates.
 - **Resource hogging**: `RAM_SIZE` and `DISK_SIZE` reserve at compose-up. Adjust before first boot — resizing afterwards is non-trivial.
 - **Stop gracefully**: `stop_grace_period: 2m` lets Windows shut down cleanly. Don't `kill -9`.
 
