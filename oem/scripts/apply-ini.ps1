@@ -1,4 +1,4 @@
-$configPath = 'C:\OEM\php-config.ini'
+$configPath = if ($env:PHP_CONFIG_PATH) { $env:PHP_CONFIG_PATH } else { 'C:\OEM\php-config.ini' }
 $iniPath    = 'C:\php\php.ini'
 
 if (-not (Test-Path $configPath)) { Write-Host ('Missing ' + $configPath); exit 1 }
