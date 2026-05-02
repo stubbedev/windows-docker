@@ -3,24 +3,27 @@ services:
     image: dockurr/windows
     container_name: windows
     environment:
-      VERSION: "11l"
-      RAM_SIZE: "8G"
-      CPU_CORES: "4"
-      DISK_SIZE: "128G"
-      USERNAME: "admin"
-      PASSWORD: "password"
+      VERSION: "${WINDOWS_VERSION:-11l}"
+      RAM_SIZE: "${RAM_SIZE:-8G}"
+      CPU_CORES: "${CPU_CORES:-4}"
+      DISK_SIZE: "${DISK_SIZE:-128G}"
+      USERNAME: "${WIN_USERNAME:-admin}"
+      PASSWORD: "${WIN_PASSWORD:?WIN_PASSWORD must be set in .env}"
+      LANGUAGE: "${WIN_LANGUAGE:-English}"
+      KEYBOARD: "${WIN_KEYBOARD:-en-US}"
+      REGION: "${WIN_REGION:-en-US}"
     devices:
       - /dev/kvm
       - /dev/net/tun
     cap_add:
       - NET_ADMIN
     ports:
-      - 8006:8006
-      - 3389:3389/tcp
-      - 3389:3389/udp
+      - "${WEB_PORT:-8006}:8006"
+      - "${RDP_PORT:-3389}:3389/tcp"
+      - "${RDP_PORT:-3389}:3389/udp"
     volumes:
       - ./storage:/storage
-      - ./oem:/oem
+      - ./oem:/oem:ro
       - ./shared:/shared
     restart: always
     stop_grace_period: 2m

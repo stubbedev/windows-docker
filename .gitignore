@@ -1,5 +1,8 @@
 storage/
-shared/
+shared/*
+!shared/.gitkeep
 *.iso
 *.vhdx
 *.qcow2
+.env
+oem/git-credentials.txt

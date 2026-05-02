@@ -7,8 +7,8 @@ echo ============================================
 echo.
 
 :: PHP and Composer are already in PATH at this point.
-:: Define your commands below. Each command runs sequentially.
-:: If a command fails, the script continues to the next one.
+:: `composer` works as a command thanks to C:\php\composer.bat.
+:: Each command runs sequentially. Failures do not abort the script.
 
 :: --- Example: Clone a repo ---
 :: echo Cloning project repository...
@@ -19,7 +19,7 @@ echo.
 :: --- Example: Install Composer dependencies ---
 :: echo Installing Composer dependencies...
 :: cd /d C:\Projects\your-repo
-:: composer install --no-interaction --no-dev
+:: call composer install --no-interaction --no-dev
 
 :: --- Example: Start a Laravel worker ---
 :: echo Starting Laravel worker...
