@@ -6,7 +6,7 @@ services:
       VERSION: "${WINDOWS_VERSION:-11l}"
       RAM_SIZE: "${RAM_SIZE:-8G}"
       CPU_CORES: "${CPU_CORES:-4}"
-      DISK_SIZE: "${DISK_SIZE:-32G}"
+      DISK_SIZE: "${DISK_SIZE:-64G}"
       USERNAME: "${WIN_USERNAME:-admin}"
       PASSWORD: "${WIN_PASSWORD:?WIN_PASSWORD must be set in .env}"
       LANGUAGE: "${WIN_LANGUAGE:-English}"
