@@ -66,7 +66,12 @@ set "PHP_ZIP_NAME=php-!PHP_VERSION!-Win32-!PHP_VS!-x64.zip"
 set "PHP_BASE_URL=https://windows.php.net/downloads/releases"
 
 :: --- Prepare staging dir ---------------------------------------
-if exist "%STAGING%" rmdir /S /Q "%STAGING%"
+:: If a previous run left C:\php.new behind, preserve it as
+:: C:\php.failed for inspection rather than silently wiping.
+if exist "%STAGING%" (
+    if exist "C:\php.failed" rmdir /S /Q "C:\php.failed"
+    ren "%STAGING%" "php.failed"
+)
 mkdir "%STAGING%"
 mkdir "%STAGING%\logs"
 
@@ -125,9 +130,21 @@ set "PHP_INI_PATH=%STAGING%\php.ini"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\apply-ini.ps1"
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: apply-ini.ps1 failed.
-    rmdir /S /Q "%STAGING%" 2>nul
+    echo Leaving %STAGING% in place for inspection.
     exit /b 1
 )
+
+:: --- Smoke-test PHP BEFORE composer --------------------------
+echo Smoke-testing PHP in staging...
+"%STAGING%\php.exe" -v
+if !ERRORLEVEL! NEQ 0 (
+    echo ERROR: php.exe -v failed in staging.
+    echo Leaving %STAGING% in place for inspection.
+    exit /b 1
+)
+echo Loaded extensions:
+"%STAGING%\php.exe" -m
+echo.
 
 :: --- Composer in staging ---------------------------------------
 echo Installing Composer into staging...
@@ -135,28 +152,21 @@ set "COMPOSER_TARGET=%STAGING%"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\install-composer.ps1"
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: Composer installer verification failed.
-    rmdir /S /Q "%STAGING%" 2>nul
+    echo Leaving %STAGING% in place for inspection.
     exit /b 1
 )
-"%STAGING%\php.exe" "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar
+"%STAGING%\php.exe" -d display_errors=1 -d display_startup_errors=1 "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: Composer setup failed.
-    rmdir /S /Q "%STAGING%" 2>nul
+    echo Leaving %STAGING% in place for inspection.
+    echo Re-running with verbose for log capture:
+    "%STAGING%\php.exe" -d display_errors=1 -d display_startup_errors=1 "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar --verbose
     exit /b 1
 )
 del /F /Q "%STAGING%\composer-setup.php" 2>nul
 
 > "%STAGING%\composer.bat" echo @echo off
 >>"%STAGING%\composer.bat" echo "%%~dp0php.exe" "%%~dp0composer.phar" %%*
-
-:: --- Smoke test in staging -------------------------------------
-echo Smoke-testing staging...
-"%STAGING%\php.exe" -v
-if !ERRORLEVEL! NEQ 0 (
-    echo ERROR: php.exe -v failed in staging.
-    rmdir /S /Q "%STAGING%" 2>nul
-    exit /b 1
-)
 
 :: --- Atomic swap -----------------------------------------------
 echo Promoting %STAGING% -> %FINAL%...

@@ -7,6 +7,11 @@ if (-not (Test-Path $iniPath))    { Write-Host ('Missing ' + $iniPath);    exit 
 $content = Get-Content $iniPath -Raw
 $lines   = Get-Content $configPath
 
+# Windows PHP php.ini-production uses ";extension=name" — no .dll, no php_ prefix.
+# That's also the canonical enabled form: "extension=name" lets PHP locate
+# php_<name>.dll in extension_dir. We try that pattern first and only fall
+# back to .dll/php_*.dll variants for non-standard ini layouts.
+
 foreach ($line in $lines) {
     $line = $line.Trim()
     if ($line -match '^;|^$') { continue }
@@ -17,17 +22,32 @@ foreach ($line in $lines) {
     if ($key -eq 'version') { continue }
 
     if ($key -eq 'extension') {
-        $extName    = $val
-        $pattern    = '^;\s*extension\s*=\s*' + [regex]::Escape($extName) + '\.dll\s*$'
-        $dllPattern = '^;\s*extension\s*=\s*php_' + [regex]::Escape($extName) + '\.dll\s*$'
+        $extName = $val
+        # Skip if already enabled.
+        $enabledPattern = '(?m)^\s*extension\s*=\s*(' + [regex]::Escape($extName) + '|' + [regex]::Escape($extName) + '\.dll|php_' + [regex]::Escape($extName) + '\.dll)\s*(;.*)?$'
+        if ($content -match $enabledPattern) { continue }
 
-        if ($content -match $pattern) {
-            $content = $content -replace $pattern, ('extension=' + $extName + '.dll')
-        } elseif ($content -match $dllPattern) {
-            $content = $content -replace $dllPattern, ('extension=php_' + $extName + '.dll')
-        } else {
-            $content += "`r`nextension=$extName.dll`r`n"
+        # Try to uncomment the canonical Windows form: ";extension=name".
+        $bare = '(?m)^;\s*extension\s*=\s*' + [regex]::Escape($extName) + '\s*(;.*)?$'
+        if ($content -match $bare) {
+            $content = $content -replace $bare, ('extension=' + $extName)
+            continue
         }
+
+        # Fallbacks for non-standard ini files.
+        $dll = '(?m)^;\s*extension\s*=\s*' + [regex]::Escape($extName) + '\.dll\s*(;.*)?$'
+        if ($content -match $dll) {
+            $content = $content -replace $dll, ('extension=' + $extName + '.dll')
+            continue
+        }
+        $phpDll = '(?m)^;\s*extension\s*=\s*php_' + [regex]::Escape($extName) + '\.dll\s*(;.*)?$'
+        if ($content -match $phpDll) {
+            $content = $content -replace $phpDll, ('extension=php_' + $extName + '.dll')
+            continue
+        }
+
+        # Not found anywhere; append the canonical form.
+        $content += "`r`nextension=$extName`r`n"
     } else {
         $iniPattern = '(?m)^;?\s*' + [regex]::Escape($key) + '\s*=.*$'
         if ($content -match $iniPattern) {
