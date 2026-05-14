@@ -134,16 +134,22 @@ if !ERRORLEVEL! NEQ 0 (
     exit /b 1
 )
 
+:: PHP-on-Windows has a compiled-in default extension_dir = "C:\php\ext".
+:: Set it explicitly so the post-swap install can find extensions. For
+:: staging invocations we override on the command line because the dir
+:: doesn't exist at C:\php\ext yet.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\set-extension-dir.ps1" -IniPath "%STAGING%\php.ini" -ExtDir "C:\php\ext"
+
 :: --- Smoke-test PHP BEFORE composer --------------------------
 echo Smoke-testing PHP in staging...
-"%STAGING%\php.exe" -v
+"%STAGING%\php.exe" -d extension_dir="%STAGING%\ext" -v
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: php.exe -v failed in staging.
     echo Leaving %STAGING% in place for inspection.
     exit /b 1
 )
 echo Loaded extensions:
-"%STAGING%\php.exe" -m
+"%STAGING%\php.exe" -d extension_dir="%STAGING%\ext" -m
 echo.
 
 :: --- Composer in staging ---------------------------------------
@@ -155,12 +161,10 @@ if !ERRORLEVEL! NEQ 0 (
     echo Leaving %STAGING% in place for inspection.
     exit /b 1
 )
-"%STAGING%\php.exe" -d display_errors=1 -d display_startup_errors=1 "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar
+"%STAGING%\php.exe" -d extension_dir="%STAGING%\ext" -d display_errors=1 -d display_startup_errors=1 "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar
 if !ERRORLEVEL! NEQ 0 (
     echo ERROR: Composer setup failed.
     echo Leaving %STAGING% in place for inspection.
-    echo Re-running with verbose for log capture:
-    "%STAGING%\php.exe" -d display_errors=1 -d display_startup_errors=1 "%STAGING%\composer-setup.php" --install-dir="%STAGING%" --filename=composer.phar --verbose
     exit /b 1
 )
 del /F /Q "%STAGING%\composer-setup.php" 2>nul
