@@ -1,6 +1,7 @@
 storage/
 shared/*
 !shared/.gitkeep
+!shared/.runtime/
 *.iso
 *.vhdx
 *.qcow2

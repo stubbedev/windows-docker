@@ -1,10 +1,15 @@
 $base = $env:PHP_BASE_URL
 $name = $env:PHP_ZIP_NAME
-$zip  = 'C:\OEM\php.zip'
+$zip  = if ($env:PHP_ZIP_PATH) { $env:PHP_ZIP_PATH } else { 'C:\php.new\php.zip' }
 
 if (-not $base -or -not $name) {
     Write-Host 'PHP_BASE_URL or PHP_ZIP_NAME not set; skipping verify.'
     exit 0
+}
+
+if (-not (Test-Path $zip)) {
+    Write-Host ('PHP zip not found at ' + $zip)
+    exit 1
 }
 
 $expected = $null

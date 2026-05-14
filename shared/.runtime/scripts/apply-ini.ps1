@@ -1,5 +1,5 @@
-$configPath = if ($env:PHP_CONFIG_PATH) { $env:PHP_CONFIG_PATH } else { 'C:\OEM\php-config.ini' }
-$iniPath    = 'C:\php\php.ini'
+$configPath = if ($env:PHP_CONFIG_PATH) { $env:PHP_CONFIG_PATH } else { 'C:\OEM-runtime\php-config.ini' }
+$iniPath    = if ($env:PHP_INI_PATH)    { $env:PHP_INI_PATH }    else { 'C:\php\php.ini' }
 
 if (-not (Test-Path $configPath)) { Write-Host ('Missing ' + $configPath); exit 1 }
 if (-not (Test-Path $iniPath))    { Write-Host ('Missing ' + $iniPath);    exit 1 }
@@ -39,4 +39,4 @@ foreach ($line in $lines) {
 }
 
 [System.IO.File]::WriteAllText($iniPath, $content)
-Write-Host 'php.ini updated.'
+Write-Host ('php.ini updated at ' + $iniPath)

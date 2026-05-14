@@ -1,0 +1,56 @@
+# This file is a sketch — populate the script keys from the repo
+# at build time. A real deploy generates these via:
+#
+#   kubectl create configmap windows-runtime \
+#     --from-file=shared/.runtime/ \
+#     --dry-run=client -o yaml > k8s/windows-runtime-configmap.yaml
+#
+#   kubectl create configmap windows-oem \
+#     --from-file=oem/ \
+#     --dry-run=client -o yaml > k8s/windows-oem-configmap.yaml
+#
+# ...and then commit the generated YAML. Helm users would template
+# this with `range .Files.Glob` instead.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windows-runtime
+data:
+  php-config.ini: |
+    ; (paste shared/.runtime/php-config.ini contents here, or generate)
+  post-install.bat: |
+    @echo off
+    rem (paste shared/.runtime/post-install.bat contents here, or generate)
+  dispatcher.bat: |
+    rem ...
+  phase-php.bat: |
+    rem ...
+  phase-code.bat: |
+    rem ...
+  # scripts/* would normally live in a second ConfigMap or be
+  # included via subPath; ConfigMap data keys cannot have slashes.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: windows-oem
+data:
+  install.bat: |
+    rem (paste oem/install.bat)
+  boot-launcher.bat: |
+    rem (paste oem/boot-launcher.bat)
+  office-config.xml: |
+    rem (paste oem/office-config.xml)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: windows-secrets
+type: Opaque
+stringData:
+  username: admin
+  password: "REPLACE_ME"
+  # Optional: paste git-credentials.txt here, then add a
+  # `subPath: git-credentials.txt` mount under /oem in the
+  # StatefulSet pod spec.

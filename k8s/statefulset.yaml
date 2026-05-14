@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: windows
+spec:
+  serviceName: windows
+  replicas: 1
+  selector:
+    matchLabels:
+      app: windows
+  template:
+    metadata:
+      labels:
+        app: windows
+      annotations:
+        # Roll the pod whenever the runtime ConfigMap changes.
+        # On rollout, Windows reboots from the same PVC and the
+        # dispatcher detects the new hash and re-runs only the
+        # affected phase. Compute this in CI from a hash of the
+        # ConfigMap manifest, or use Helm's `tpl` + `sha256sum`.
+        checksum/runtime: "REPLACE_WITH_CONFIGMAP_HASH"
+    spec:
+      terminationGracePeriodSeconds: 120
+      initContainers:
+        # ConfigMaps mount read-only, but the dispatcher also writes
+        # `install.done` to the shared path. Copy the orchestrator
+        # into the writable PVC on every pod start so config changes
+        # take effect on the next boot.
+        - name: seed-runtime
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /shared/.runtime
+              cp -rT /runtime-config /shared/.runtime
+              # Drop any stale healthcheck signal from the previous deploy.
+              rm -f /shared/install.done
+          volumeMounts:
+            - name: runtime-config
+              mountPath: /runtime-config
+            - name: shared
+              mountPath: /shared
+      containers:
+        - name: windows
+          image: dockurr/windows
+          securityContext:
+            privileged: true
+          env:
+            - name: VERSION
+              value: "10"
+            - name: RAM_SIZE
+              value: "8G"
+            - name: CPU_CORES
+              value: "4"
+            - name: DISK_SIZE
+              value: "64G"
+            - name: USERNAME
+              valueFrom: { secretKeyRef: { name: windows-secrets, key: username } }
+            - name: PASSWORD
+              valueFrom: { secretKeyRef: { name: windows-secrets, key: password } }
+          ports:
+            - containerPort: 8006
+              name: web
+            - containerPort: 3389
+              name: rdp-tcp
+              protocol: TCP
+            - containerPort: 3389
+              name: rdp-udp
+              protocol: UDP
+          resources:
+            limits:
+              # Adjust to the device-plugin advertised by your cluster.
+              devices.kubevirt.io/kvm: "1"
+              devices.kubevirt.io/tun: "1"
+              memory: "10Gi"
+              cpu: "4"
+            requests:
+              memory: "10Gi"
+              cpu: "2"
+          startupProbe:
+            exec:
+              command: ["test", "-f", "/shared/install.done"]
+            periodSeconds: 30
+            failureThreshold: 80   # ~40 min for first install
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/shared/install.done"]
+            periodSeconds: 30
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+            - name: shared
+              mountPath: /shared
+            - name: oem
+              mountPath: /oem
+              readOnly: true
+      volumes:
+        - name: runtime-config
+          configMap:
+            name: windows-runtime
+        - name: oem
+          configMap:
+            name: windows-oem
+        - name: shared
+          persistentVolumeClaim:
+            claimName: windows-shared
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 80Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: windows-shared
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: windows
+spec:
+  selector:
+    app: windows
+  ports:
+    - { name: web,     port: 8006, targetPort: 8006 }
+    - { name: rdp-tcp, port: 3389, targetPort: 3389, protocol: TCP }
+    - { name: rdp-udp, port: 3389, targetPort: 3389, protocol: UDP }

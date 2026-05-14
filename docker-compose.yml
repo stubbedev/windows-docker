@@ -26,10 +26,14 @@ services:
       - ./oem:/oem:ro
       - ./shared:/shared
     healthcheck:
+      # The dispatcher deletes /shared/install.done at the start of every
+      # boot and re-creates it only after every phase succeeds. So this
+      # signal reflects "current deploy is fully ready", not just
+      # "the disk was provisioned once".
       test: ["CMD-SHELL", "test -f /shared/install.done"]
       interval: 30s
       timeout: 10s
-      retries: 40
-      start_period: 5m
+      retries: 60
+      start_period: 10m
     restart: always
     stop_grace_period: 2m

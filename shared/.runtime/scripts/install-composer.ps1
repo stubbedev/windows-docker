@@ -1,5 +1,13 @@
 $ProgressPreference = 'SilentlyContinue'
-$setup = 'C:\php\composer-setup.php'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$target = if ($env:COMPOSER_TARGET) { $env:COMPOSER_TARGET } else { 'C:\php' }
+$setup  = Join-Path $target 'composer-setup.php'
+
+if (-not (Test-Path $target)) {
+    Write-Host ('Target directory ' + $target + ' does not exist.')
+    exit 1
+}
 
 Invoke-WebRequest -Uri 'https://getcomposer.org/installer' -OutFile $setup -ErrorAction Stop
 
@@ -12,5 +20,5 @@ if ($actual -ine $expected) {
     exit 1
 }
 
-Write-Host 'Composer installer signature OK.'
+Write-Host ('Composer installer downloaded to ' + $setup + ' (signature OK).')
 exit 0

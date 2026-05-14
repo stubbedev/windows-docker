@@ -1,0 +1,22 @@
+@echo off
+setlocal EnableDelayedExpansion
+
+:: ============================================================
+:: post-install-stop.bat (optional)
+:: Copy to post-install-stop.bat to enable.
+::
+:: Called by phase-php BEFORE C:\php is moved out of the way.
+:: Use this to stop any long-running processes (queue workers,
+:: php-cgi, scheduled tasks) that hold open handles on C:\php\*.
+:: Without this, phase-php may fail to rename C:\php on a PHP
+:: version bump.
+:: ============================================================
+
+echo Stopping PHP-dependent services...
+
+:: --- Examples ---
+:: taskkill /F /IM php-cgi.exe /T 2>nul
+:: taskkill /F /IM php.exe /T 2>nul
+:: sc stop YourServiceName
+
+exit /b 0
