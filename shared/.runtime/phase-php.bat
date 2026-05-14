@@ -69,7 +69,8 @@ set "PHP_BASE_URL=https://windows.php.net/downloads/releases"
 :: If a previous run left C:\php.new behind, preserve it as
 :: C:\php.failed for inspection rather than silently wiping.
 if exist "%STAGING%" (
-    if exist "C:\php.failed" rmdir /S /Q "C:\php.failed"
+    if exist "C:\php.failed" del /F /Q "C:\php.failed" 2>nul
+    if exist "C:\php.failed" rmdir /S /Q "C:\php.failed" 2>nul
     ren "%STAGING%" "php.failed"
 )
 mkdir "%STAGING%"
@@ -175,7 +176,8 @@ del /F /Q "%STAGING%\composer-setup.php" 2>nul
 :: --- Atomic swap -----------------------------------------------
 echo Promoting %STAGING% -^> %FINAL%...
 
-if exist "%OLD%" rmdir /S /Q "%OLD%"
+if exist "%OLD%" del /F /Q "%OLD%" 2>nul
+if exist "%OLD%" rmdir /S /Q "%OLD%" 2>nul
 
 if exist "%FINAL%" (
     ren "%FINAL%" "php.old"
@@ -213,7 +215,8 @@ if !ERRORLEVEL! NEQ 0 (
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPTS%\set-php-path.ps1"
 
 :: --- Cleanup backup --------------------------------------------
-if exist "%OLD%" rmdir /S /Q "%OLD%"
+if exist "%OLD%" del /F /Q "%OLD%" 2>nul
+if exist "%OLD%" rmdir /S /Q "%OLD%" 2>nul
 
 echo ----------------------------------------
 echo Phase PHP: success %DATE% %TIME%
