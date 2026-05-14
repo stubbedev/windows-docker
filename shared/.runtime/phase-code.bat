@@ -30,7 +30,7 @@ if not exist "%DEST%" mkdir "%DEST%"
 if exist "%SMB%\" (
     echo Mirroring %SMB% -> %DEST% (excluding orchestrator + state files)...
     robocopy "%SMB%" "%DEST%" /E /R:5 /W:5 /NFL /NDL /NJH /NJS ^
-        /XD ".runtime" ".oem-state" ^
+        /XD ".runtime" ".oem-state" ".logs" ^
         /XF "install.done" "install.running"
     set "RC=!ERRORLEVEL!"
     :: robocopy: 0-7 = success/info, >=8 = error.

@@ -161,7 +161,8 @@ k8s/                              # Kubernetes manifest example
 | `make up` | Start (or resume) and wait until every phase completes |
 | `make redeploy` | Reboot Windows so the dispatcher fires; only changed phases re-run |
 | `make reset` | Tear down, wipe the VM disk, and start fresh — no sudo needed |
-| `make logs` | Tail the container logs |
+| `make logs` | Tail the container (dockur) logs |
+| `make logs-dispatcher` | Tail the dispatcher log written by the VM to `shared/.logs/dispatcher.log` |
 
 ## Logs and state on the VM
 
@@ -174,8 +175,9 @@ After first boot, these paths exist on the Windows VM:
 | `C:\OEM-state\phase-code.done` + `.hash` | Phase-code marker + hash of last `post-install.bat` |
 | `C:\OEM-state\phase-*.running` | Present only while a phase is mid-run; left behind on crash to force re-run |
 | `C:\OEM-logs\install.log` | First-boot phase-base log |
-| `C:\OEM-logs\dispatcher.log` | Per-boot dispatcher log (appended) |
-| `C:\OEM-logs\boot-launcher.log` | Per-boot launcher log |
+| `C:\OEM-logs\dispatcher.log` | Per-boot dispatcher log (local fallback if SMB unwritable) |
+| `\\host.lan\Data\.logs\dispatcher.log` | Per-boot dispatcher log on the SMB share — visible from the host at `shared/.logs/dispatcher.log` |
+| `C:\OEM-logs\boot-launcher.log` | Per-boot launcher log (local only — SMB may not be up yet) |
 | `C:\OEM-bootstrap\boot-launcher.bat` | The scheduled task target (baked once) |
 | `C:\OEM-runtime\` | Fresh copy of `\\host.lan\Data\.runtime\` written each boot |
 

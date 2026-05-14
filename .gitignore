@@ -1,5 +1,6 @@
 storage/
 shared/*
+shared/.logs/
 !shared/.gitkeep
 !shared/.runtime/
 *.iso

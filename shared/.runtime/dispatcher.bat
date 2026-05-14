@@ -13,12 +13,20 @@ setlocal EnableDelayedExpansion
 set "RUNTIME=C:\OEM-runtime"
 set "STATE=C:\OEM-state"
 set "LOG_DIR=C:\OEM-logs"
-set "LOG=%LOG_DIR%\dispatcher.log"
 set "SMB=\\host.lan\Data"
+set "SMB_LOG_DIR=%SMB%\.logs"
 set "HEALTH_FILE=%SMB%\install.done"
 
 if not exist "%STATE%"   mkdir "%STATE%"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+
+:: Prefer the SMB log so the host can tail it. Fall back to local
+:: if the SMB share isn't writable.
+set "LOG=%LOG_DIR%\dispatcher.log"
+if exist "%SMB%\" (
+    if not exist "%SMB_LOG_DIR%" mkdir "%SMB_LOG_DIR%" 2>nul
+    if exist "%SMB_LOG_DIR%" set "LOG=%SMB_LOG_DIR%\dispatcher.log"
+)
 
 :: Re-launch self with stdout/stderr appended to the log.
 if not defined __DISPATCHER_LOGGED (
