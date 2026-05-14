@@ -173,7 +173,7 @@ del /F /Q "%STAGING%\composer-setup.php" 2>nul
 >>"%STAGING%\composer.bat" echo "%%~dp0php.exe" "%%~dp0composer.phar" %%*
 
 :: --- Atomic swap -----------------------------------------------
-echo Promoting %STAGING% -> %FINAL%...
+echo Promoting %STAGING% -^> %FINAL%...
 
 if exist "%OLD%" rmdir /S /Q "%OLD%"
 
