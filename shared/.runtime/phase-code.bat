@@ -28,7 +28,7 @@ echo ----------------------------------------
 if not exist "%DEST%" mkdir "%DEST%"
 
 if exist "%SMB%\" (
-    echo Mirroring %SMB% -> %DEST% (excluding orchestrator + state files)...
+    echo Mirroring %SMB% -^> %DEST% [excluding orchestrator + state files]...
     robocopy "%SMB%" "%DEST%" /E /R:5 /W:5 /NFL /NDL /NJH /NJS ^
         /XD ".runtime" ".oem-state" ".logs" ^
         /XF "install.done" "install.running"
@@ -47,7 +47,7 @@ if exist "%OEM_RUNTIME%\post-install.bat" (
     echo Running post-install.bat...
     call "%OEM_RUNTIME%\post-install.bat"
     if !ERRORLEVEL! NEQ 0 (
-        echo ERROR: post-install.bat returned non-zero (!ERRORLEVEL!).
+        echo ERROR: post-install.bat returned non-zero [!ERRORLEVEL!].
         exit /b !ERRORLEVEL!
     )
 ) else (

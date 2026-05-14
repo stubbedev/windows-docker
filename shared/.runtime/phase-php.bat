@@ -81,7 +81,7 @@ if !ERRORLEVEL! NEQ 0 (
 )
 
 if not exist "%PHP_ZIP_PATH%" (
-    echo ERROR: Failed to download PHP !PHP_VERSION! (!PHP_VS!).
+    echo ERROR: Failed to download PHP !PHP_VERSION! [!PHP_VS!].
     rmdir /S /Q "%STAGING%" 2>nul
     exit /b 1
 )

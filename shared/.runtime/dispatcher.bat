@@ -111,7 +111,7 @@ call "%P_SCRIPT%"
 set "P_RC=!ERRORLEVEL!"
 
 if !P_RC! NEQ 0 (
-    echo Phase %P_NAME%: FAILED (rc=!P_RC!). Marker not advanced; .running marker left in place for next boot to retry.
+    echo Phase %P_NAME%: FAILED [rc=!P_RC!]. Marker not advanced; .running marker left in place for next boot to retry.
     exit /b !P_RC!
 )
 
